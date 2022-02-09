@@ -1,6 +1,11 @@
 import numpy as np
 import torch
 from torch import autograd
+import torch.nn as nn
+# import torch.backends.cudnn as cudnn
+# import torch.nn.functional as F
+# import torch.optim as optim
+from torch.utils import data
 import wandb
 from dotenv import load_dotenv
 import os
@@ -8,8 +13,12 @@ import subprocess
 import shutil
 import logging
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 from torch import nn
 import tifffile
+from skimage.util import random_noise
+from skimage import io, filters
 
 # set-up util
 def initialise_folders(tag):
@@ -222,3 +231,117 @@ def plot_img(img, slcs=4):
     """
     img = post_process(img)
     wandb.log({"slices": [wandb.Image(i) for i in img]})
+
+
+def distort(img):
+    """
+    adds noise and blur to a segmented image to create fake raw data
+    :img: a single image (np.ndarray)
+    """
+    img = img.astype(np.float32)
+    img *= 1/np.amax(img)
+    blurred = filters.gaussian(img, sigma=2)
+    distorted = random_noise(blurred, mode='speckle', var=1, mean=1.5, seed=3)
+    return distorted
+
+def get_window(x_size, y_size):
+    #top = r.randint(0,img_stack[0].shape[0]-x_size)
+    top = 100 # fix top and left for reproducability
+    bottom = top+x_size
+    #left = r.randint(0,img_stack[0].shape[1]-y_size)
+    left = 100 # fix top and left for reproducability
+    right = left+y_size
+    return [left, right, top, bottom]
+
+def crop_labels(img):
+    """ Crop labelled image (so labelled info is limited)
+    :img: a single image (np.ndarray)
+    """
+    img +=1
+    coords = get_window(200,200)
+    img[:,:coords[0]] = 0
+    img[:,coords[1]:] = 0
+    img[:coords[2]] = 0
+    img[coords[3]:] = 0
+    return img
+
+def one_hot_encode(mask, n_classes=3):
+    one_hot = np.zeros((n_classes, mask.shape[0], mask.shape[1]))
+    for i, unique_value in enumerate(np.unique(mask)):
+        one_hot[i][mask == unique_value] = 1
+    one_hot = one_hot[1:]   # remove '0' (unlabelled) layer
+    return one_hot
+
+# def encode_stack(mask_stack):
+#     one_hot_stack = []
+#     for i in range(mask_stack.shape[0]):
+#         one_hot_stack.append(one_hot_encode(mask_stack[i]))
+#     return one_hot_stack
+
+def preprocess(data_path):
+    """
+    :data_path: path to data in tif format (string)
+    """
+    imgs = io.imread(data_path)
+    inputs = []
+    targets = []
+    for img in imgs:
+        img.append(distort(img))
+        cropped = crop_labels(img)
+        targets.append(one_hot_encode(cropped))
+    dataset = NMCDataset(inputs=inputs, targets=targets, transform=None)
+    return dataset
+
+def visualise(output, x, y):
+    """
+    :output: one-hot encoded output from network (torch.Tensor, shape = [batch, classes, height, width])
+    :x: input into vector (greyscale or rgb) (torch.Tensor, shape = [batch, channels, height, width])
+    :y: one-hot encoded labelled pixels (torch.Tensor, shape = [batch, classes, height, width])
+    """
+    img_stack = io.imread("datasets/3ph_0/NMC_90wt_0bar.tif")
+
+    titles = ['input', 'ground truth', 'mask','argmax', 'output as rgb',
+              'max of softmax']
+    input = x[0,0]
+    ground_truth = img_stack[9]
+    mask = torch.argmax(y,dim=1)[0]
+    argmax = torch.argmax(output, dim=1)[0]
+    rgb = output[0].permute(1,2,0).detach().numpy()
+    softmax_max = torch.max(output[0], 0)[0].detach().numpy()
+    imgs = [input, ground_truth, mask, argmax, rgb, softmax_max]
+    fig, ax = plt.subplots(2, 3, figsize=[20,12])
+    with torch.no_grad():
+        for i in range(6):
+            x_coord = int(i/3) # for i<3 x=0, for i<=3 x=1 
+            y_coord = i%3
+            if i>3:
+                im = ax[x_coord,y_coord].imshow(imgs[i], vmin=0, vmax = 1)
+            else:
+                im = ax[x_coord,y_coord].imshow(imgs[i])
+            ax[x_coord,y_coord].axis('off')
+            ax[x_coord,y_coord].title.set_text(titles[i])
+            divider = make_axes_locatable(ax[x_coord,y_coord])
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            fig.colorbar(im, cax=cax)
+        plt.show()
+    return
+
+class NMCDataset(data.Dataset):
+    def __init__(self, inputs: list, targets: list, transform=None):
+        self.inputs = inputs
+        self.targets = targets
+        self. transform = transform
+        self.inputs_dtype = torch.float32
+        self.targets_dtype = torch.float32
+
+    def __len__(self):
+        return len(self.inputs)
+
+    def __getitem__(self, index: int):
+        x = self.inputs[index]
+        y = self.targets[index]
+
+        if self.transform is not None:
+            x, y = self.transform(x, y)
+        x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
+        return x, y
