@@ -65,16 +65,8 @@ def make_nets(config, training=True):
                     self.convs.append(
                         nn.Conv2d(f[lay], f[lay+1], ker, str, pad)
                     )
-                # self.conv1 = nn.Conv2d(1, 16, 3, padding=1)
-                # self.conv2 = nn.Conv2d(16, 16, 3, padding=1)
-                # self.conv3 = nn.Conv2d(16, 16, 3, padding=1)
-                # self.conv4 = nn.Conv2d(16, 3, 3, padding=1)
 
             def forward(self, x):
-                # x = F.relu(self.conv1(x))
-                # x = F.relu(self.conv2(x))
-                # x = F.relu(self.conv3(x))
-                # x = self.conv4(x)
                 for conv in self.convs[:-1]:
                     x = F.relu_(conv(x))
                 x = self.convs[-1](x)  # bs x 1 x 1
