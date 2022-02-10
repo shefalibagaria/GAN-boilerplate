@@ -7,7 +7,7 @@ class Config():
     def __init__(self, tag):
         self.tag = tag
         self.path = f'runs/{self.tag}'
-        self.data_path = 'data/Example_ppp.png' # what format does the data need to be in
+        self.data_path = 'data/3ph_0/NMC_90wt_0bar.tif' # what format does the data need to be in
         self.net_type = 'cnn'
         self.l = 64     # what is l
         self.n_channels = 1

@@ -7,7 +7,7 @@ import torch.nn as nn
 import tifffile
 import time
 
-def train(c, Net, offline=True):
+def train(c, Net, offline=True, overwrite=True):
     """[summary]
 
     :param c: [description]
@@ -71,14 +71,16 @@ def train(c, Net, offline=True):
                 start_overall = time.time()
 
             x, y = d
+            print('x shape: ', x.shape, 'y shape: ', y.shape)
             net.zero_grad()
             outputs = net(x.to(device))
+            print('outputs shape: ', outputs.shape)
             loss = mse_loss(outputs[y != 0].view(-1, 1, 200, 200), y.to(device)[y != 0].view(-1, 1, 200, 200))
             loss.backward()
             optimizer.step()
             running_loss.append(loss.item())
 
-        if epoch % 10 == 0:
+        if epoch % 1 == 0:
             f = visualise(outputs.detach().cpu(), x.detach().cpu(), y.detach().cpu())
             wandb.log({'Loss': np.mean(running_loss)})
             wandb.log({'Output': wandb.Image(f)})

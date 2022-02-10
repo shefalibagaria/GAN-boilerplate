@@ -120,23 +120,23 @@ def wandb_save_models(fn):
     wandb.save(fn)
 
 # training util
-def preprocess(data_path):
-    """[summary]
+# def preprocess(data_path):
+#     """[summary]
 
-    :param imgs: [description]
-    :type imgs: [type]
-    :return: [description]
-    :rtype: [type]
-    """
-    img = plt.imread(data_path)[:, :, 0]
-    phases = np.unique(img)
-    if len(phases) > 10:
-        raise AssertionError('Image not one hot encoded.')
-    x, y = img.shape
-    img_oh = torch.zeros(len(phases), x, y)
-    for i, ph in enumerate(phases):
-        img_oh[i][img == ph] = 1
-    return img_oh, len(phases)
+#     :param imgs: [description]
+#     :type imgs: [type]
+#     :return: [description]
+#     :rtype: [type]
+#     """
+#     img = plt.imread(data_path)[:, :, 0]
+#     phases = np.unique(img)
+#     if len(phases) > 10:
+#         raise AssertionError('Image not one hot encoded.')
+#     x, y = img.shape
+#     img_oh = torch.zeros(len(phases), x, y)
+#     for i, ph in enumerate(phases):
+#         img_oh[i][img == ph] = 1
+#     return img_oh, len(phases)
 
 def calc_gradient_penalty(netD, real_data, fake_data, batch_size, l, device, gp_lambda, nc):
     """[summary]
@@ -283,6 +283,7 @@ def distort(img):
     img *= 1/np.amax(img)
     blurred = filters.gaussian(img, sigma=2)
     distorted = random_noise(blurred, mode='speckle', var=1, mean=1.5, seed=3)
+    distorted = np.expand_dims(distorted, axis=0)
     return distorted
 
 def get_window(x_size, y_size):
@@ -307,17 +308,12 @@ def crop_labels(img):
     return img
 
 def one_hot_encode(mask, n_classes=3):
+    n_classes+=1
     one_hot = np.zeros((n_classes, mask.shape[0], mask.shape[1]))
     for i, unique_value in enumerate(np.unique(mask)):
         one_hot[i][mask == unique_value] = 1
     one_hot = one_hot[1:]   # remove '0' (unlabelled) layer
     return one_hot
-
-# def encode_stack(mask_stack):
-#     one_hot_stack = []
-#     for i in range(mask_stack.shape[0]):
-#         one_hot_stack.append(one_hot_encode(mask_stack[i]))
-#     return one_hot_stack
 
 def preprocess(data_path):
     """
@@ -327,7 +323,7 @@ def preprocess(data_path):
     inputs = []
     targets = []
     for img in imgs:
-        img.append(distort(img))
+        inputs.append(distort(img))
         cropped = crop_labels(img)
         targets.append(one_hot_encode(cropped))
     dataset = NMCDataset(inputs=inputs, targets=targets, transform=None)
@@ -339,7 +335,7 @@ def visualise(output, x, y):
     :x: input into vector (greyscale or rgb) (torch.Tensor, shape = [batch, channels, height, width])
     :y: one-hot encoded labelled pixels (torch.Tensor, shape = [batch, classes, height, width])
     """
-    img_stack = io.imread("datasets/3ph_0/NMC_90wt_0bar.tif")
+    img_stack = io.imread("data/3ph_0/NMC_90wt_0bar.tif")
 
     titles = ['input', 'ground truth', 'mask','argmax', 'output as rgb',
               'max of softmax']
@@ -364,8 +360,8 @@ def visualise(output, x, y):
             divider = make_axes_locatable(ax[x_coord,y_coord])
             cax = divider.append_axes('right', size='5%', pad=0.05)
             fig.colorbar(im, cax=cax)
-        plt.show()
-    return
+        # plt.show()
+    return fig
 
 class NMCDataset(data.Dataset):
     def __init__(self, inputs: list, targets: list, transform=None):

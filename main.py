@@ -26,8 +26,9 @@ def main(mode, offline, tag):
     if mode == 'train':
         overwrite = util.check_existence(tag)
         util.initialise_folders(tag, overwrite)
-        netD, netG = networks.make_nets(c, overwrite)
-        train(c, netG, netD, offline=offline, overwrite=overwrite)
+        net = networks.make_nets(c, overwrite)
+        print('net made')
+        train(c, net, offline=offline, overwrite=overwrite)
 
     elif mode == 'generate':
         netD, netG = networks.make_nets(c, training=0)
