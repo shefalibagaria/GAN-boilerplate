@@ -363,6 +363,7 @@ def visualise(output, x, y):
         # plt.show()
     return fig
 
+
 class NMCDataset(data.Dataset):
     def __init__(self, inputs: list, targets: list, transform=None):
         self.inputs = inputs

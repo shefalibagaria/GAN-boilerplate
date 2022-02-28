@@ -71,18 +71,20 @@ def train(c, Net, offline=True, overwrite=True):
                 start_overall = time.time()
 
             x, y = d
-            print('x shape: ', x.shape, 'y shape: ', y.shape)
+            # print('x shape: ', x.shape, 'y shape: ', y.shape)
             net.zero_grad()
             outputs = net(x.to(device))
-            print('outputs shape: ', outputs.shape)
+            # print('outputs shape: ', outputs.shape)
             loss = mse_loss(outputs[y != 0].view(-1, 1, 200, 200), y.to(device)[y != 0].view(-1, 1, 200, 200))
             loss.backward()
             optimizer.step()
             running_loss.append(loss.item())
 
-        if epoch % 1 == 0:
+        if epoch % 10 == 0:
             f = visualise(outputs.detach().cpu(), x.detach().cpu(), y.detach().cpu())
             wandb.log({'Loss': np.mean(running_loss)})
+            wandb.log({'Max Softmax Value': torch.max(outputs.detach().cpu()).detach().numpy()})
+            wandb.log({'Softmax Mean': torch.mean(outputs[0].detach().cpu()).detach().numpy()})
             wandb.log({'Output': wandb.Image(f)})
             plt.close()
             print('epoch: {}, running loss: {}'.format(
