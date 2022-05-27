@@ -1,26 +1,24 @@
-# GAN-boilerplate
+# Segmentatron
 
-A boilerplate repo for GAN projects.
-
-This repo is geared towards GANs for material microstructure projects, where the generator learned to output a homogeneous image. However, it can be easily adapted to any GAN project.
+This repo 
 
 ## Folder structure
 
 ```
-GAN-boilerplate
+iterative_labelling
  ┣ src
  ┃ ┣ __init__.py
  ┃ ┣ networks.py
  ┃ ┣ postprocessing.py
  ┃ ┣ preprocessing.py
  ┃ ┣ test.py
- ┃ ┣ train.py
+ ┃ ┣ train_worker.py
  ┃ ┗ util.py
  ┣ data
  ┃ ┗ example.png
  ┣ .gitignore
  ┣ config.py
- ┣ main.py
+ ┣ gui.py
  ┣ README.md
  ┗ requirements.txt
 ```
